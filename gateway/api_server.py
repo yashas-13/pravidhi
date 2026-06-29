@@ -88,8 +88,11 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     """Initialize Pravidhi engine on API startup."""
+    from engine.registry import get_registry
     registry = get_registry()
     registry.discover_skills()
+    # Mount control UI
+    mount_control_ui(app)
     logger.info("Pravidhi API server started")
 
 

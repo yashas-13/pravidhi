@@ -591,4 +591,171 @@ register_all_tools()
 
 
 # Add cyber command group
+
+# ── Reverse Engineering CLI ──────────────────────────────────────────
+
+@cli.group()
+def re():
+    """🔬 Reverse engineering tools — Ghidra, z3, LLM decompilation."""
+    pass
+
+
+@re.command()
+@click.argument("path")
+@click.option("--depth", "-d", type=click.Choice(["basic", "deep", "full"]), default="basic")
+@click.option("--json-output", "-j", is_flag=True, help="Raw JSON output")
+def analyze(path, depth, json_output):
+    """Analyze a binary file (PE, ELF, Mach-O, firmware)."""
+    import json as _json
+    from engine.reverse_engineering import BinaryAnalyzer
+    from rich.console import Console
+    from rich.table import Table
+    console = Console()
+
+    import asyncio
+    async def run():
+        analyzer = BinaryAnalyzer()
+        report = await analyzer.analyze(path, depth)
+        return report
+
+    with console.status("[bold]Analyzing binary..."):
+        report = asyncio.run(run())
+
+    if json_output:
+        console.print(_json.dumps({
+            "format": report.binary.format.value,
+            "arch": report.binary.arch,
+            "size": report.binary.size,
+            "entropy": report.binary.entropy,
+            "strings": len(report.binary.strings),
+            "hashes": report.binary.hashes,
+            "vulnerabilities": len(report.vulnerabilities),
+            "summary": report.summary,
+        }, indent=2))
+        return
+
+    console.print(f"\n[bold]Binary Analysis:[/bold] {path}")
+    console.print(f"  Format: [cyan]{report.binary.format.value}[/cyan]  Arch: [green]{report.binary.arch}[/green]")
+    console.print(f"  Size: {report.binary.size:,} bytes  Entropy: {report.binary.entropy:.2f}")
+    console.print(f"  Strings: {len(report.binary.strings)}  Vulnerabilities: {len(report.vulnerabilities)}")
+    if report.binary.hashes:
+        console.print(f"  MD5: [dim]{report.binary.hashes.get('md5', '')}[/dim]")
+        console.print(f"  SHA256: [dim]{report.binary.hashes.get('sha256', '')}[/dim]")
+    console.print(f"\n{report.summary}")
+
+
+# ── Router Agent CLI ─────────────────────────────────────────────────
+
+@cli.group()
+def router():
+    """🌐 9Router agent — model-agnostic pentesting via OpenRouter."""
+    pass
+
+
+@router.command()
+@click.argument("target")
+@click.option("--intent", "-i", default="full pentest", help="Pentest intent")
+@click.option("--model", "-m", default="", help="OpenRouter model")
+@click.option("--output", "-o", type=click.Path(), help="Save report to file")
+def pentest(target, intent, model, output):
+    """Run a penetration test through OpenRouter."""
+    import json as _json
+    from router_agent.core import NineRouterAgent
+    from rich.console import Console
+    console = Console()
+
+    console.print(f"[bold red]🌐 Router Pentest:[/bold red] {target}")
+
+    import asyncio
+    async def run():
+        agent = NineRouterAgent()
+        report = await agent.pentest(target, intent, model or agent.default_model)
+        return report
+
+    with console.status("[bold]Running pentest..."):
+        report = asyncio.run(run())
+
+    console.print(f"\n[bold]Status:[/bold] {report.status}")
+    console.print(f"Duration: {report.duration:.1f}s  Findings: {len(report.findings)}")
+    console.print(f"Model: {report.model_used}")
+
+    if report.findings:
+        from rich.table import Table
+        table = Table(title="Findings")
+        table.add_column("Severity", style="bold")
+        table.add_column("Title", style="cyan")
+        table.add_column("Phase")
+        severity_color = {"critical": "red", "high": "orange1", "medium": "yellow", "low": "blue", "info": "white"}
+        for f in report.findings:
+            color = severity_color.get(f.severity, "white")
+            table.add_row(f"[{color}]{f.severity.upper()}[/{color}]", f.title[:60], f.phase)
+        console.print(table)
+
+    if output:
+        with open(output, "w") as f:
+            _json.dump({
+                "target": target,
+                "status": report.status,
+                "findings": [{"title": f.title, "severity": f.severity, "description": f.description} for f in report.findings],
+            }, f, indent=2)
+        console.print(f"[green]Report saved: {output}[/green]")
+
+    if report.summary:
+        console.print(f"\n[dim]{report.summary[:500]}[/dim]")
+
+
+@router.command()
+@click.argument("target")
+@click.option("--command", "-c", default="nmap -sV", help="Command")
+def scan(target, command):
+    """Run a security scan through OpenRouter."""
+    from router_agent.core import NineRouterAgent
+    from rich.console import Console
+    console = Console()
+
+    import asyncio
+    async def run():
+        agent = NineRouterAgent()
+        return await agent.scan(target, command)
+
+    with console.status("[bold]Scanning..."):
+        result = asyncio.run(run())
+
+    from rich.panel import Panel
+    console.print(Panel(result[:2000] if result else "No output", title="Scan Result", border_style="green"))
+
+
+@router.command()
+def models():
+    """List available OpenRouter models."""
+    from router_agent.core import NineRouterAgent
+    from rich.console import Console
+    from rich.table import Table
+    console = Console()
+
+    agent = NineRouterAgent()
+    model_list = agent.list_models()
+
+    console.print(f"[bold]Available Models:[/bold] {len(model_list)}")
+    table = Table()
+    table.add_column("Model ID", style="cyan")
+    for m in model_list[:30]:
+        table.add_row(m)
+    console.print(table)
+    if len(model_list) > 30:
+        console.print(f"[dim]... and {len(model_list) - 30} more[/dim]")
+
+
+# ── Enhanced Doctor ──────────────────────────────────────────────────
+
+@cli.command()
+@click.option("--fix", is_flag=True, help="Auto-fix all issues")
+@click.option("--deps", is_flag=True, help="Install missing dependencies")
+@click.option("--full", is_flag=True, help="Full comprehensive check")
+def doctor(fix, deps, full):
+    """System diagnostics, dependency repair, and auto-setup."""
+    from gateway.doctor import run_doctor as _run_doctor
+    import sys
+    sys.exit(_run_doctor(fix=fix, deps=deps))
+
 cli.add_command(cyber_group)
