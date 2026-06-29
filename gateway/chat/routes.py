@@ -142,9 +142,21 @@ async def chat_websocket(websocket: WebSocket, session_id: str):
                 await websocket.send_json({"type": "cleared"})
 
             elif action == "settings":
-                # Update settings
+                # Update settings with key mapping (camelCase → snake_case)
                 if "settings" in data:
-                    session.settings.update(data["settings"])
+                    raw = data["settings"]
+                    # Map frontend camelCase keys to backend snake_case
+                    key_map = {
+                        "maxTokens": "max_tokens",
+                        "systemPrompt": "system_prompt",
+                        "autoRotate": "auto_rotate",
+                        "opencodeUrl": "opencode_url",
+                        "routerUrl": "router_url",
+                    }
+                    for front_key, back_key in key_map.items():
+                        if front_key in raw:
+                            raw[back_key] = raw.pop(front_key)
+                    session.settings.update(raw)
                     await websocket.send_json({"type": "settings_updated", "settings": session.settings})
 
             elif action == "ping":

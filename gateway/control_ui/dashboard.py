@@ -303,7 +303,7 @@ async def analyze_binary(req: BinaryAnalysisRequest):
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
-@router.post("/pipeline/run")
+@router.get("/pipeline/run")
 async def run_pipeline(prompt: str = Query(..., min_length=1)):
     """Run a prompt through the Pravidhi pipeline."""
     try:
@@ -313,6 +313,7 @@ async def run_pipeline(prompt: str = Query(..., min_length=1)):
             "request_id": ctx.request_id,
             "duration_ms": ctx.metadata.get("total_duration_ms", 0),
             "validation_score": ctx.validation_score,
+            "stages_completed": 7 - len(ctx.errors),
             "errors": ctx.errors[:5],
             "output": str(ctx.final_output)[:1000] if ctx.final_output else "",
         }

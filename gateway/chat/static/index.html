@@ -2067,7 +2067,61 @@ function formatResult(data) {
       });
       html += '</table>';
     }
+ 
+  // Scan result
+  if (type === 'scan') {
+    const icon = data.status === 'completed' ? '✅' : '❌';
+    return `<strong>Scan Result</strong> ${icon}<br>Target: <code>${escHtml(data.target||'')}</code><br><pre style="margin-top:6px;background:rgba(15,23,42,0.4);padding:10px;border-radius:8px">${escHtml((data.result||'No output').substring(0,2000))}</pre>`;
+  }
+
+  // Cron management results
+  if (type === 'cron_add') {
+    return `<strong>Cron Job Created</strong> ✅<br>Name: <code>${escHtml(data.name||'')}</code><br>ID: <code>${data.id||''}</code><br>Schedule: <code>${escHtml(data.schedule||'')}</code>`;
+  }
+  if (type === 'cron_pause') { return `<strong>Cron Job Paused</strong> ⏸<br>ID: <code>${data.id||''}</code>`; }
+  if (type === 'cron_resume') { return `<strong>Cron Job Resumed</strong> ▶<br>ID: <code>${data.id||''}</code>`; }
+  if (type === 'cron_delete') { return `<strong>Cron Job Deleted</strong> 🗑<br>ID: <code>${data.id||''}</code>`; }
+  if (type === 'cron_help') { return `<em>${escHtml(data.message||'')}</em>`; }
+
+  // Overflow check
+  if (type === 'overflow_check') {
+    const vulnerable = data.vulnerable;
+    const icon = vulnerable ? '🔴' : '🟢';
+    const msg = vulnerable ? `VULNERABLE — overflow by ${data.overflow_by||'?'} bytes` : 'Safe — no overflow detected';
+    return `<strong>Buffer Overflow Check</strong> ${icon}<br><code>${msg}</code>`;
+  }
+
+  // Practice / research status
+  if (type === 'practice') {
+    const results = data.results || [];
+    let html = `<strong>Practice Results</strong> — ${data.epochs||0} epochs<br>`;
+    results.forEach((r,i) => {
+      html += `E${i+1}: ${r.success?'✅':'❌'} score=${(r.score||0).toFixed(2)} dur=${(r.duration_ms||0).toFixed(0)}ms<br>`;
+    });
     return html;
+  }
+  if (type === 'research_status') {
+    return `<strong>Research Status</strong><br>
+      Epoch: <code>${data.current_epoch||0}</code> · Accuracy: <code>${((data.accuracy||0)*100).toFixed(1)}%</code><br>
+      Loss: <code>${(data.loss||0).toFixed(3)}</code> · Converged: <code>${data.converged||false}</code><br>
+      Total steps: <code>${data.total_steps||0}</code>`;
+  }
+
+  // Skill result (inline)
+  // (already handled above as 'skills')
+
+  // File list
+  if (type === 'file_list') {
+    const files = data.files || [];
+    return `<strong>Directory:</strong> <code>${escHtml(data.path||'')}</code><br>${files.map(f => '📄 ' + escHtml(f)).join('<br>')}`;
+  }
+
+  // Help pages (cyber_help, re_help)
+  if (type === 'cyber_help' || type === 're_help') {
+    return `<em>${escHtml(data.message||'')}</em>`;
+  }
+
+   return html;
   }
 
   // Binary analysis
