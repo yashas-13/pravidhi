@@ -2111,6 +2111,41 @@ function formatResult(data) {
   // (already handled above as 'skills')
 
   // File list
+  // UltraWorker results
+  if (type === 'ultra_status') {
+    const s = data.status || data;
+    if (s && s.pool_size !== undefined) {
+      const stats = s.stats || {};
+      const workers = Object.values(s.workers || {});
+      let html = '<strong>UltraWorker Pool</strong> 🌐<br>';
+      html += `Pool Size: <code>${s.pool_size}</code> · Fusion: <code>${s.fusion_strategy||'best_of_n'}</code><br>`;
+      html += `Completed: <code>${stats.completed||0}</code> · Failed: <code>${stats.failed||0}</code> · Queue: <code>${s.queue_size||0}</code><br>`;
+      if (workers.length) {
+        html += '<table><tr><th>Worker</th><th>Model</th><th>Status</th><th>Items</th></tr>';
+        workers.forEach(w => {
+          html += `<tr><td>${w.worker_id||'?'}</td><td>${escHtml(w.model||'-')}</td><td>${w.status||'?'}</td><td>${w.items_processed||0}</td></tr>`;
+        });
+        html += '</table>';
+      }
+      return html;
+    }
+    if (data.pool_started) return `<strong>UltraWorker Pool Started</strong> ✅<br>Workers: <code>${data.workers||3}</code>`;
+    if (data.pool_stopped) return '<strong>UltraWorker Pool Stopped</strong> ⏹';
+    return '<strong>UltraWorker</strong> — status unknown';
+  }
+
+  if (type === 'ultra_pipeline' || type === 'ultra_chat') {
+    const isPipe = type === 'ultra_pipeline';
+    return `<strong>Ultra ${isPipe ? 'Pipeline' : 'Chat'}</strong> 🌐<br>
+      Strategy: <code>${data.strategy||'best_of_n'}</code> ·
+      Consensus: <code>${((data.consensus_score||0)*100).toFixed(0)}%</code><br>
+      Workers: <code>${data.workers_used||0}/${data.workers_total||0}</code> ·
+      Latency: <code>${(data.total_latency_ms||0).toFixed(0)}ms</code><br>
+      Primary: <code>${escHtml(data.primary_model||'N/A')}</code><br>
+      <pre style="margin-top:6px;background:rgba(15,23,42,0.4);padding:10px;border-radius:8px;font-size:12px">${escHtml((data.content||'').substring(0,800))}</pre>`;
+  }
+
+
   if (type === 'file_list') {
     const files = data.files || [];
     return `<strong>Directory:</strong> <code>${escHtml(data.path||'')}</code><br>${files.map(f => '📄 ' + escHtml(f)).join('<br>')}`;

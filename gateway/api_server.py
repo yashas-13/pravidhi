@@ -115,6 +115,62 @@ async def discover_providers():
     result = await discover_all()
     return result
 
+# ── UltraWorker Routes ───────────────────────────────────────────────
+
+@app.post("/api/ultraworker/start")
+async def ultraworker_start(num_workers: int = 3):
+    """Start the ultraworker pool with N parallel workers."""
+    from engine.ultraworker import start_pool
+    pool = await start_pool(num_workers)
+    return {"status": "started", "workers": num_workers, "pool": pool.get_status()}
+
+
+@app.post("/api/ultraworker/stop")
+async def ultraworker_stop():
+    """Stop the ultraworker pool."""
+    from engine.ultraworker import get_pool
+    await get_pool().stop()
+    return {"status": "stopped"}
+
+
+@app.get("/api/ultraworker/status")
+async def ultraworker_status():
+    """Get ultraworker pool status."""
+    from engine.ultraworker import get_pool
+    return {"status": get_pool().get_status()}
+
+
+@app.post("/api/ultraworker/pipeline")
+async def ultraworker_pipeline(prompt: str, parallel: int = 3):
+    """Run pipeline in parallel across multiple models."""
+    from engine.ultraworker import get_pool
+    pool = get_pool()
+    if not pool._running:
+        await pool.start(num_workers=parallel)
+    result = await pool.run_parallel_pipeline(prompt, parallel)
+    return result
+
+
+@app.post("/api/ultraworker/chat")
+async def ultraworker_chat(messages: List[Dict[str, Any]], parallel: int = 3):
+    """Run chat in parallel across multiple models with fusion."""
+    from engine.ultraworker import get_pool, WorkItem, WorkItemType
+    pool = get_pool()
+    if not pool._running:
+        await pool.start(num_workers=parallel)
+    item = WorkItem(type=WorkItemType.LLM_CHAT, payload={"messages": messages})
+    fused = await pool.run_parallel(item, parallel)
+    return {
+        "type": "ultra_chat",
+        "strategy": fused.strategy.value,
+        "consensus_score": fused.consensus_score,
+        "workers_used": fused.workers_used,
+        "total_latency_ms": round(fused.total_latency_ms, 1),
+        "content": fused.content,
+        "primary_model": fused.primary.model if fused.primary else None,
+    }
+
+
     logger.info("Pravidhi API server started")
 
 

@@ -47,6 +47,7 @@ class IntentType(str, Enum):
     PROVIDER = "provider"
     SKILLS = "skills"
     HELP = "help"
+    ULTRAWORKER = "ultraworker"
     CHAT = "chat"
     EXECUTE = "execute"
     CODE = "code"
@@ -147,6 +148,11 @@ INTENT_PATTERNS: Dict[IntentType, List[str]] = {
     IntentType.HELP: [
         r"^(help|\?|commands|what can you do)$",
         r"\b(help|guide|manual|doc|tutorial)\b",
+    ],
+    IntentType.ULTRAWORKER: [
+        r"\b(ultra|parallel|ensemble|fusion|multi.?model|all.?models|consensus)\b",
+        r"\b(ultraworker|ultra.?pool|parallel.?exec|distributed)\b",
+        r"\b(run\s+on\s+all|use\s+all\s+models|compare\s+models)\b",
     ],
 }
 
@@ -315,6 +321,50 @@ async def execute_research(action: str = "status", **params) -> Dict[str, Any]:
         return {"type": "research_status", **status}
 
 
+async def execute_ultraworker(action: str = "status", **params) -> Dict[str, Any]:
+    """Run ultraworker operations."""
+    from engine.ultraworker import UltraWorkerPool, get_pool, start_pool, WorkItem, WorkItemType
+
+    if action in ("start", "run", "init", "launch"):
+        n = params.get("num_workers", 3)
+        pool = await start_pool(n)
+        return {"type": "ultra_status", "pool_started": True, "workers": n, "pool_status": pool.get_status()}
+
+    elif action in ("stop", "shutdown"):
+        await get_pool().stop()
+        return {"type": "ultra_status", "pool_stopped": True}
+
+    elif action in ("pipeline", "run_pipeline"):
+        prompt = params.get("prompt", "")
+        parallel = params.get("parallel", 3)
+        pool = get_pool()
+        if not pool._running:
+            await pool.start(parallel)
+        result = await pool.run_parallel_pipeline(prompt, parallel)
+        return result
+
+    elif action in ("chat", "ask"):
+        messages = params.get("messages", [{"role": "user", "content": params.get("prompt", "")}])
+        parallel = params.get("parallel", 3)
+        pool = get_pool()
+        if not pool._running:
+            await pool.start(parallel)
+        item = WorkItem(type=WorkItemType.LLM_CHAT, payload={"messages": messages})
+        fused = await pool.run_parallel(item, parallel)
+        return {
+            "type": "ultra_chat",
+            "strategy": fused.strategy.value,
+            "consensus_score": fused.consensus_score,
+            "workers_used": fused.workers_used,
+            "total_latency_ms": round(fused.total_latency_ms, 1),
+            "content": fused.content[:3000],
+            "primary_model": fused.primary.model if fused.primary else None,
+        }
+
+    # Default: status
+    return {"type": "ultra_status", "status": get_pool().get_status()}
+
+
 async def execute_doctor(action: str = "check", **params) -> Dict[str, Any]:
     """Run doctor diagnostics."""
     from gateway.doctor import DoctorEngine
@@ -388,6 +438,12 @@ INTENT_DISPATCH: Dict[IntentType, Callable] = {
     IntentType.PROVIDER: lambda text, **kw: get_providers(),
     IntentType.SKILLS: lambda text, **kw: get_skills(),
     IntentType.HELP: lambda text, **kw: get_help(),
+    IntentType.ULTRAWORKER: lambda text, **kw: execute_ultraworker(
+        action=kw.get("action", "status"),
+        prompt=kw.get("prompt", text),
+        parallel=kw.get("parallel", 3),
+        **kw
+    ),
     IntentType.FILE: lambda text, **kw: handle_file(text, **kw),
 }
 
@@ -727,6 +783,33 @@ def format_result(result: Dict[str, Any]) -> str:
         skills = result.get("skills", [])
         return f"**Skills** — {result.get('total', 0)} available\n" + "\n".join(
             f"- `{s.get('id', s.get('name', '?'))}`" for s in skills[:10]
+        )
+
+    if rtype in ("ultra_status",):
+        s = result.get("status", {})
+        if isinstance(s, dict):
+            stats = s.get("stats", {})
+            workers = s.get("workers", {})
+            return (
+                f"**UltraWorker Pool** {'✅' if s.get('pool_size',0) > 0 else '⏸'}\n"
+                f"- Workers: `{s.get('pool_size', 0)}`  "
+                f"Queue: `{s.get('queue_size', 0)}`\n"
+                f"- Completed: `{stats.get('completed', 0)}`  "
+                f"Failed: `{stats.get('failed', 0)}`\n"
+                f"- Fusion: `{s.get('fusion_strategy', 'best_of_n')}`  "
+                f"Max parallel: `{s.get('max_parallel', 3)}`"
+            )
+        return f"**UltraWorker** {'Started' if result.get('pool_started') else 'Stopped' if result.get('pool_stopped') else 'Unknown'}"
+
+    if rtype in ("ultra_pipeline", "ultra_chat"):
+        return (
+            f"**Ultra {'Pipeline' if 'pipeline' in rtype else 'Chat'}** 🌐\n"
+            f"- Strategy: `{result.get('strategy', 'best_of_n')}`  "
+            f"Consensus: `{result.get('consensus_score', 0):.1%}`\n"
+            f"- Workers: `{result.get('workers_used', 0)}/{result.get('workers_total', 0)}`  "
+            f"Latency: `{result.get('total_latency_ms', 0):.0f}ms`\n"
+            f"- Primary model: `{result.get('primary_model', 'N/A')}`\n"
+            f"- Result: _{result.get('content', '')[:500]}_"
         )
 
     if rtype in ("system_status",):
