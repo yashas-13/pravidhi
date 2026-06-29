@@ -91,8 +91,13 @@ async def startup():
     from engine.registry import get_registry
     registry = get_registry()
     registry.discover_skills()
-    # Mount control UI
-    mount_control_ui(app)
+    # Mount control UI dashboard
+    try:
+        from gateway.control_ui.dashboard import mount_dashboard
+        mount_dashboard(app)
+        logger.info("Control UI dashboard mounted at /")
+    except Exception as e:
+        logger.warning(f"Control UI not available: {e}")
     logger.info("Pravidhi API server started")
 
 
