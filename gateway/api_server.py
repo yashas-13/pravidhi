@@ -106,6 +106,15 @@ async def startup():
         logger.info("Chat Control UI mounted at /chat")
     except Exception as e:
         logger.warning(f"Chat Control UI not available: {e}")
+# ── Provider Discovery Route ─────────────────────────────────────────
+
+@app.get("/api/discover/providers")
+async def discover_providers():
+    """Auto-discover and return all available model providers."""
+    from engine.provider_discovery import discover_all
+    result = await discover_all()
+    return result
+
     logger.info("Pravidhi API server started")
 
 
