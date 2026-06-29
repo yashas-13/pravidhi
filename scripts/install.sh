@@ -23,7 +23,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # ── Detect OS ────────────────────────────────────────────────────────────────
 detect_os() {
@@ -44,7 +44,7 @@ OS=$(detect_os)
 ARCH=$(uname -m)
 
 echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║     Pravidhi Installer v0.1          ║${NC}"
+echo -e "${CYAN}║     Pravidhi Installer v1.0          ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
 echo -e "${CYAN}  OS:${NC} $OS  ${CYAN}Arch:${NC} $ARCH"
 echo ""
@@ -56,23 +56,23 @@ install_deps() {
     case "$OS" in
         linux)
             if command -v apt-get &>/dev/null; then
-                sudo apt-get update -qq && sudo apt-get install -y -qq python3 python3-pip git curl openssh-client >/dev/null 2>&1
+                apt-get update -qq 2>/dev/null && apt-get install -y -qq python3 python3-pip git curl openssh-client >/dev/null 2>&1 || true
             elif command -v apk &>/dev/null; then
                 apk add --no-cache python3 py3-pip git curl openssh >/dev/null 2>&1
             elif command -v pacman &>/dev/null; then
-                sudo pacman -S --noconfirm python python-pip git curl openssh >/dev/null 2>&1
+                pacman -S --noconfirm python python-pip git curl openssh >/dev/null 2>&1 || true
             elif command -v dnf &>/dev/null; then
-                sudo dnf install -y python3 python3-pip git curl openssh >/dev/null 2>&1
+                dnf install -y python3 python3-pip git curl openssh >/dev/null 2>&1 || true
             else
                 echo -e "${YELLOW}  Unknown package manager. Install python3, git, curl manually.${NC}"
             fi
             ;;
         termux)
-            pkg update -y && pkg install -y python python-pip git curl openssh binutils >/dev/null 2>&1
+            pkg update -y && pkg install -y python python-pip git curl openssh binutils >/dev/null 2>&1 || true
             ;;
         darwin)
             if command -v brew &>/dev/null; then
-                brew install python@3 git curl >/dev/null 2>&1
+                brew install python@3 git curl >/dev/null 2>&1 || true
             fi
             ;;
     esac
@@ -98,11 +98,7 @@ install_python_pkg() {
     echo -e "${YELLOW}[3/4] Installing Python package...${NC}"
     cd "$INSTALL_DIR"
 
-    # Install core deps
-    pip install $PIP_ARGS click rich httpx pydantic pydantic-settings pyyaml fastapi uvicorn python-dotenv sqlalchemy apscheduler python-multipart 2>/dev/null || true
-
-    # Install the package itself
-    pip install $PIP_ARGS -e . 2>/dev/null || true
+    pip install $PIP_ARGS -e ".[all]" 2>/dev/null || pip install $PIP_ARGS -e . 2>/dev/null || true
 
     echo -e "${GREEN}  ✓ Python package installed${NC}"
 }
@@ -120,17 +116,30 @@ exec python3 -m gateway.cli "$@"
 LAUNCHER
     chmod +x "$BIN_DIR/pravidhi"
 
+    # Determine shell rc file
+    shell_rc=""
+    if [ -n "${ZSH_VERSION:-}" ]; then
+        shell_rc="${HOME}/.zshrc"
+    elif [ -f "${HOME}/.bashrc" ]; then
+        shell_rc="${HOME}/.bashrc"
+    elif [ -f "${HOME}/.profile" ]; then
+        shell_rc="${HOME}/.profile"
+    elif [ -f "${HOME}/.bash_profile" ]; then
+        shell_rc="${HOME}/.bash_profile"
+    fi
+
     # Add to PATH if not already present
-    case ":$PATH:" in
-        *":$BIN_DIR:"*) ;;
-        *)
-            shell_rc="${HOME}/.bashrc"
-            if [ -n "$ZSH_VERSION" ]; then shell_rc="${HOME}/.zshrc"; fi
-            if [ "$OS" = "termux" ]; then shell_rc="${HOME}/.bashrc"; fi
+    if [ -n "$shell_rc" ]; then
+        if ! grep -q "$BIN_DIR" "$shell_rc" 2>/dev/null; then
+            echo "" >> "$shell_rc"
+            echo "# Added by Pravidhi installer" >> "$shell_rc"
             echo "export PATH=\"\$PATH:$BIN_DIR\"" >> "$shell_rc"
             echo -e "  Added $BIN_DIR to PATH in $shell_rc"
-            ;;
-    esac
+        fi
+    fi
+
+    # Always export for current session
+    export PATH="$PATH:$BIN_DIR"
 
     # Create config directory
     mkdir -p "$HOME/.pravidhi"
@@ -158,6 +167,8 @@ main() {
     echo -e "    pravidhi status"
     echo -e "    pravidhi validate \"test prompt\""
     echo -e "    pravidhi cyber skills \"sql injection\""
+    echo -e "    pravidhi re analyze /bin/ls"
+    echo -e "    pravidhi serve &"
     echo ""
     echo -e "  ${YELLOW}Set your API key:${NC}"
     echo -e "    export OPENROUTER_API_KEY='sk-or-v1-...'"
