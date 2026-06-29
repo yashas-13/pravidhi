@@ -98,6 +98,14 @@ async def startup():
         logger.info("Control UI dashboard mounted at /")
     except Exception as e:
         logger.warning(f"Control UI not available: {e}")
+
+    # Mount Chat Control UI
+    try:
+        from gateway.chat.routes import mount_chat_ui
+        mount_chat_ui(app)
+        logger.info("Chat Control UI mounted at /chat")
+    except Exception as e:
+        logger.warning(f"Chat Control UI not available: {e}")
     logger.info("Pravidhi API server started")
 
 
