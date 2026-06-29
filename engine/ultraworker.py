@@ -291,7 +291,7 @@ class UltraWorkerPool:
             "model": model.split("/", 1)[-1] if "/" in model else model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": 4096,
+            "max_tokens": 1_000_000,
         }
 
         async with httpx.AsyncClient(timeout=120.0) as client:

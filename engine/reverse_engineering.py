@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeAlias, Union
+import math
+
 
 logger = logging.getLogger("pravidhi.reverse_engineering")
 
@@ -138,7 +140,7 @@ def compute_entropy(data: bytes) -> float:
     for x in range(256):
         p_x = data.count(x) / len(data)
         if p_x > 0:
-            entropy += -p_x * (p_x.bit_length())
+            entropy += -p_x * math.log2(p_x)
     return entropy
 
 

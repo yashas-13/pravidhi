@@ -76,7 +76,7 @@ class ChatSession:
     settings: Dict[str, Any] = field(default_factory=lambda: {
         "model": os.getenv("ROUTER_MODEL", "openai/gpt-5.4-mini"),
         "temperature": 0.3,
-        "max_tokens": 4096,
+        "max_tokens": 1_000_000,
         "stream": True,
         "system_prompt": "You are Pravidhi Chat — an expert AI ecosystem controller. You can execute pipelines, manage cron jobs, run pentests, analyze binaries, and perform research. Explain your actions clearly.",
     })

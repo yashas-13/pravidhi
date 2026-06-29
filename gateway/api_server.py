@@ -132,6 +132,72 @@ async def ultraworker_stop():
     await get_pool().stop()
     return {"status": "stopped"}
 
+# ── Latest Technologies Routes ──────────────────────────────────────────
+
+@app.get("/api/latest/technologies")
+async def latest_technologies():
+    """Discover and return all latest integrated technologies status."""
+    from engine.latest_tech import discover_all_technologies, MCPManager
+    from engine.context_window import CONTEXT_WINDOW_CONFIG
+    result = await discover_all_technologies()
+    return {
+        "status": "ok",
+        "discovered": result,
+        "features": {
+            "1m_context_window": True,
+            "context_compression": True,
+            "mcp_protocol": True,
+            "a2a_agent_network": True,
+            "streaming_multiplexer": True,
+            "multi_modal_input": True,
+            "self_hosted_models": True,
+            "tool_dependency_scanner": True,
+            "prompt_caching": True,
+            "adaptive_rate_limiting": True,
+            "rag_integration": True,
+            "parallel_tool_execution": True,
+        },
+        "context_config": CONTEXT_WINDOW_CONFIG,
+    }
+
+
+@app.post("/api/latest/mcp/discover")
+async def mcp_discover():
+    """Discover MCP servers."""
+    from engine.latest_tech import get_mcp_manager
+    mcp = get_mcp_manager()
+    count = await mcp.discover()
+    return {"servers_discovered": count, "total": len(mcp.servers), "servers": {k: {"command": v.command, "enabled": v.enabled} for k, v in mcp.servers.items()}}
+
+
+@app.get("/api/latest/self-hosted")
+async def self_hosted_models():
+    """Discover self-hosted model endpoints."""
+    from engine.latest_tech import get_self_hosted
+    sh = get_self_hosted()
+    models = await sh.discover()
+    return {"models": [{"name": m.name, "provider": m.provider, "url": m.url, "healthy": m.healthy} for m in models]}
+
+
+@app.post("/api/latest/rag/index")
+async def rag_index(data: dict):
+    """Index documents into RAG store."""
+    documents = data.get("documents", [])
+    from engine.latest_tech import get_rag
+    rag = get_rag()
+    count = await rag.index(documents)
+    return {"indexed": count, "total": len(rag._store)}
+
+
+@app.post("/api/latest/rag/search")
+async def rag_search(query: str, top_k: int = 5):
+    """Search RAG index."""
+    from engine.latest_tech import get_rag
+    rag = get_rag()
+    results = await rag.search(query, top_k)
+    return {"results": results, "count": len(results)}
+
+
 
 @app.get("/api/ultraworker/status")
 async def ultraworker_status():

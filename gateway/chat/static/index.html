@@ -1210,7 +1210,7 @@ body {
         </div>
         <div class="form-group">
           <label>Max Tokens</label>
-          <input id="setting-max-tokens" type="number" min="256" max="64000" value="4096" onchange="updateSettings()">
+          <input id="setting-max-tokens" type="number" min="256" max="1048576" value="1000000" onchange="updateSettings()">
         </div>
       </div>
       <div class="form-group">
@@ -1342,7 +1342,7 @@ let codeMode = false;
 let settings = {
   model: '',
   temperature: 0.3,
-  maxTokens: 4096,
+  maxTokens: 1000000,
   autoRotate: true,
   opencodeUrl: 'http://localhost:20128/v1',
   routerUrl: 'http://localhost:20128/v1',

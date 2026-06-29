@@ -238,7 +238,7 @@ class ProviderRouter:
         payload = {
             "model": ep.model,
             "messages": messages,
-            "max_tokens": 4096,
+            "max_tokens": 1_000_000,
             "temperature": 0.7,
         }
 
@@ -247,7 +247,7 @@ class ProviderRouter:
             if ep.api_type == "anthropic":
                 url = f"{ep.base_url}/messages"
                 payload.pop("max_tokens", None)
-                payload["max_tokens"] = 4096
+                payload["max_tokens"] = 1_000_000
 
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
