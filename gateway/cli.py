@@ -340,6 +340,71 @@ if __name__ == "__main__":
     cli()
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Doctor — Diagnostics & Repair
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@cli.group()
+def doctor():
+    """🔧 System diagnostics, dependency repair, and auto-setup."""
+    pass
+
+
+@doctor.command()
+@click.option("--fix", is_flag=True, help="Auto-fix all detected issues")
+@click.option("--deps", is_flag=True, help="Install missing dependencies only")
+@click.pass_context
+def run(ctx, fix, deps):
+    """Run full system diagnostics and optionally repair issues."""
+    from gateway.doctor import run_doctor
+    exit_code = run_doctor(fix=fix, deps=deps)
+    ctx.exit(exit_code)
+
+
+@doctor.command()
+def version():
+    """Show version and system info."""
+    from gateway.doctor import detect_system
+    info = detect_system()
+    click.echo(f"Pravidhi v{get_config().engine.version}")
+    click.echo(f"OS: {info.os} {info.os_version or ''}")
+    click.echo(f"Arch: {info.arch}")
+    click.echo(f"Python: {info.python_version}")
+    click.echo(f"Pravidhi home: {info.pravidhi_home}")
+    click.echo(f"Termux: {'✓' if info.is_termux else '✗'}")
+    click.echo(f"Root: {'✓' if info.is_root else '✗'}")
+
+
+@doctor.command()
+@click.argument("url", default="https://pravidhisolutions.in")
+def ping(url):
+    """Test network connectivity to a host."""
+    import httpx
+    try:
+        r = httpx.get(url, timeout=10)
+        click.echo(f"  {url}")
+        click.echo(f"  Status: {r.status_code} {r.reason_phrase}")
+        click.echo(f"  Time:   {r.elapsed.total_seconds():.2f}s")
+        if r.status_code < 400:
+            click.echo(click.style("  ✓ Reachable", fg="green"))
+        else:
+            click.echo(click.style(f"  ✗ HTTP error", fg="red"))
+    except Exception as e:
+        click.echo(click.style(f"  ✗ {e}", fg="red"))
+
+
+@doctor.command()
+def install_script():
+    """Print the curl install command."""
+    click.echo("Linux / macOS:")
+    click.echo("  curl -fsSL https://raw.githubusercontent.com/yashas-13/pravidhi/main/scripts/install.sh | bash")
+    click.echo("")
+    click.echo("Termux (Android):")
+    click.echo("  pkg install curl -y && curl -fsSL https://raw.githubusercontent.com/yashas-13/pravidhi/main/scripts/install.sh | bash")
+    click.echo("")
+    click.echo("Direct one-liner:")
+    click.echo('  bash -c "$(curl -fsSL https://raw.githubusercontent.com/yashas-13/pravidhi/main/scripts/install.sh)"')
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Google Labs — DESIGN.md & Skills CLI
 # ═══════════════════════════════════════════════════════════════════════════════
 

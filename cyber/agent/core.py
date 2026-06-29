@@ -146,10 +146,10 @@ class CyberSkillsManager:
         scored = []
         for name, skill in self._skills.items():
             score = 0
-            if query_lower in name.lower():
+            if query_lower in name.lower().replace('-', ' ').replace('_', ' '):
                 score += 3
             desc = skill.get("description", "")
-            if query_lower in desc.lower():
+            if desc and query_lower in desc.lower():
                 score += 2
             tags = skill.get("tools", []) + skill.get("techniques", []) + skill.get("frameworks", [])
             for t in tags:
