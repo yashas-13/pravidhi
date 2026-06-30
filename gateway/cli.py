@@ -68,6 +68,109 @@ def cli(ctx: click.Context, config: Optional[str], verbose: bool):
 
 # ── Chat ─────────────────────────────────────────────────────────────────────
 
+# ── Bounty Commands ────────────────────────────────────────────────────────
+
+@cli.group()
+def bounty():
+    """Vibe Buy Bounty system — post, claim, complete bounties."""
+    pass
+
+
+@bounty.command()
+@click.option("--status", default="open", help="Filter by status")
+@click.option("--category", default="", help="Filter by category")
+def list(status, category):
+    """List bounties."""
+    import asyncio
+    from engine.bounty import BountyBoard
+    async def _run():
+        board = BountyBoard()
+        bounties = await board.list_bounties(status, category)
+        stats = await board.get_stats()
+        click.echo(click.style(f"Bounty Board ({stats["total_bounties"]} total)", fg="cyan", bold=True))
+        click.echo(f"  Open: {stats['open_bounties']}  Completed: {stats['completed_bounties']}  Hunters: {stats['active_hunters']}")
+        for b in bounties[:10]:
+            click.echo(f"  [{b['id']}] {b['title']} — {b['reward']} ({b['severity']})")
+    asyncio.run(_run())
+
+
+@bounty.command()
+@click.argument("title")
+@click.option("--description", "-d", default="", help="Description")
+@click.option("--reward", "-r", default=0, type=float, help="Reward in VIBE")
+@click.option("--severity", default="medium", type=click.Choice(["low","medium","high","critical"]))
+def create(title, description, reward, severity):
+    """Create a new bounty."""
+    import asyncio
+    from engine.bounty import BountyBoard
+    async def _run():
+        board = BountyBoard()
+        b = await board.create_bounty(title=title, description=description,
+                                        reward_amount=reward, severity=severity)
+        click.echo(click.style(f"Bounty created: {b.id[:8]} — {b.title}", fg="green"))
+        click.echo(f"  Reward: {b.reward_amount} VIBE  Status: {b.status}")
+    asyncio.run(_run())
+
+
+@bounty.command()
+@click.argument("bounty_id")
+@click.argument("hunter")
+def claim(bounty_id, hunter):
+    """Claim a bounty."""
+    import asyncio
+    from engine.bounty import BountyBoard
+    async def _run():
+        board = BountyBoard()
+        success, msg = await board.claim_bounty(bounty_id, hunter)
+        if success:
+            click.echo(click.style(f"✅ {msg}", fg="green"))
+        else:
+            click.echo(click.style(f"❌ {msg}", fg="red"))
+    asyncio.run(_run())
+
+
+# ── Publish Commands ─────────────────────────────────────────────────────────
+
+@cli.group()
+def publish():
+    """Publish Pravidhi apps to Anyclaw hosting."""
+    pass
+
+
+@publish.command()
+def chat():
+    """Publish the Pravidhi Chat SPA to Anyclaw."""
+    import asyncio
+    from engine.publisher import AppPublisher
+    async def _run():
+        click.echo(click.style("Publishing Pravidhi Chat...", fg="yellow"))
+        result = await AppPublisher.publish_chat_ui()
+        if result.success:
+            click.echo(click.style(f"✅ Published! Claim at: {result.claim_url}", fg="green"))
+        else:
+            click.echo(click.style(f"❌ Failed: {result.error}", fg="red"))
+    asyncio.run(_run())
+
+
+@publish.command()
+def list():
+    """List published apps."""
+    import asyncio
+    from engine.publisher import AppPublisher
+    async def _run():
+        publisher = AppPublisher()
+        apps = await publisher.list_apps()
+        if apps:
+            click.echo(click.style(f"Published Apps ({len(apps)}):", fg="cyan", bold=True))
+            for a in apps[:10]:
+                click.echo(f"  • {a.get('app_id','?')}: {a.get('title','')}")
+        else:
+            click.echo("No apps published yet.")
+    asyncio.run(_run())
+
+
+# ── Interactive Session ──────────────────────────────────────────────────────
+
 @cli.command()
 @click.option("--model", "-m", help="Model to use")
 @click.option("--provider", "-p", help="Provider to use")

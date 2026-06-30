@@ -2202,6 +2202,82 @@ function formatResult(data) {
     return html;
   }
 
+  // Bounty list
+  if (type === 'bounty_list') {
+    const bounties = data.bounties || [];
+    const stats = data.stats || {};
+    let h = '<strong>Bounty Board</strong> 🏆';
+    h += '<div style="font-size:11px;color:var(--text-dim);margin:4px 0">';
+    h += `Open: <code>${stats.open_bounties||0}</code> · Completed: <code>${stats.completed_bounties||0}</code> · Hunters: <code>${stats.active_hunters||0}</code>`;
+    h += ` · Rewards: <code>${stats.total_rewards_paid||0} VIBE</code>`;
+    h += '</div>';
+    if (!bounties.length) { h += '<em>No bounties found.</em>'; return h; }
+    h += '<table><tr><th>ID</th><th>Title</th><th>Reward</th><th>Severity</th><th>Status</th></tr>';
+    bounties.forEach(b => {
+      const sevColors = {low:'#60a5fa',medium:'#eab308',high:'#fb923c',critical:'#ef4444'};
+      h += `<tr><td><code>${escHtml(b.id||'')}</code></td><td>${escHtml(b.title||'').substring(0,60)}`;
+      h += `</td><td>${escHtml(b.reward||'')}</td>`;
+      h += `<td style="color:${sevColors[b.severity]||'#94a3b8'}">${b.severity||''}</td>`;
+      h += `<td>${b.status||''}</td></tr>`;
+    });
+    return h + '</table>';
+  }
+
+  // Bounty created
+  if (type === 'bounty_created') {
+    return `<strong>Bounty Created</strong> 🏆<br>ID: <code>${data.id||''}</code> · ${escHtml(data.title||'')}<br>Reward: <strong>${data.reward||'0 VIBE'}</strong>`;
+  }
+
+  // Bounty claim
+  if (type === 'bounty_claim') {
+    const icon = data.success ? '✅' : '❌';
+    return `${icon} <strong>Bounty Claim</strong><br>${escHtml(data.message||'')}`;
+  }
+
+  // Bounty submit
+  if (type === 'bounty_submit') {
+    const icon = data.success ? '✅' : '❌';
+    return `${icon} <strong>Bounty Submission</strong><br>${escHtml(data.message||'')}`;
+  }
+
+  // Bounty stats
+  if (type === 'bounty_stats') {
+    const s = data.stats || {};
+    return `<strong>Bounty Stats</strong> 🏆
+      <table><tr><td>Total</td><td><code>${s.total_bounties||0}</code></td><td>Open</td><td><code>${s.open_bounties||0}</code></td></tr>
+      <tr><td>Completed</td><td><code>${s.completed_bounties||0}</code></td><td>Hunters</td><td><code>${s.active_hunters||0}</code></td></tr>
+      <tr><td>Rewards</td><td colspan=3><code>${s.total_rewards_paid||0} VIBE</code></td></tr></table>`;
+  }
+
+  // Bounty hunter profile
+  if (type === 'bounty_hunter') {
+    const p = data.profile || {};
+    return `<strong>Hunter Profile</strong> 🎯 <code>@${escHtml(p.username||'')}</code>
+      <table><tr><td>Reputation</td><td><code>${p.reputation||0}</code></td><td>VIBE Earned</td><td><code>${p.vibe_earned||0}</code></td></tr>
+      <tr><td>Completed</td><td><code>${p.bounties_completed||0}</code></td><td>Joined</td><td><code>${(p.joined||'').substring(0,10)}</code></td></tr></table>`;
+  }
+
+  // Publish success
+  if (type === 'publish_success') {
+    return `<strong>App Published!</strong> 🚀<br>App ID: <code>${escHtml(data.app_id||'')}</code><br>Claim URL: <a href="${escHtml(data.claim_url||'')}" target="_blank" rel="noopener">${escHtml(data.claim_url||'')}</a><br>${escHtml(data.message||'')}`;
+  }
+
+  // Publish error
+  if (type === 'publish_error') {
+    return `❌ <strong>Publish Failed</strong><br>${escHtml(data.message||'Error')}`;
+  }
+
+  // Publish list
+  if (type === 'publish_list') {
+    const apps = data.apps || [];
+    if (!apps.length) return '<em>No apps published yet.</em>';
+    let h = `<strong>Published Apps</strong> (${data.total||0})`;
+    apps.forEach(a => {
+      h += `<br>📦 <code>${escHtml(a.app_id||a.id||'?')}</code> — ${escHtml(a.title||'')}`;
+    });
+    return h;
+  }
+
   // Shell/Code
   if (type === 'shell' || type === 'code_execution') {
     const lang = type === 'shell' ? 'bash' : (data.language||'text');

@@ -24,6 +24,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple, Union
 
+from engine.bounty import execute_bounty, get_bounty_board
+from engine.publisher import AppPublisher, get_publisher
+
 logger = logging.getLogger("pravidhi.chat")
 
 
@@ -46,6 +49,8 @@ class IntentType(str, Enum):
     DOCTOR = "doctor"
     PROVIDER = "provider"
     SKILLS = "skills"
+    BOUNTY = "bounty"
+    PUBLISH = "publish"
     HELP = "help"
     ULTRAWORKER = "ultraworker"
     CHAT = "chat"
@@ -144,6 +149,16 @@ INTENT_PATTERNS: Dict[IntentType, List[str]] = {
         r"^(status|stats|uptime|info|health)$",
         r"\b(show|get|what.?is)\s+(status|stats|health|state)\b",
         r"\b(system|service)\s+(status|info)\b",
+    ],
+    IntentType.BOUNTY: [
+        r"\b(bounty|bounties|vibe|reward|earn|contribute|fund)\b",
+        r"\b(post|create|claim|complete)\s+(bounty|bounty)\b",
+        r"\b(bounty)\s+(list|create|claim|complete|stats|hunter)\b",
+    ],
+    IntentType.PUBLISH: [
+        r"\b(publish|deploy|host|release|ship|launch)\s+(app|web|site|chat|ui)\b",
+        r"\b(publish|deploy)\s+(this|chat|current|pravidhi)\b",
+        r"\b(deploy)\s+(to|on)\s+(anyclaw|web|production)\b",
     ],
     IntentType.HELP: [
         r"^(help|\?|commands|what can you do)$",
@@ -437,6 +452,8 @@ INTENT_DISPATCH: Dict[IntentType, Callable] = {
     IntentType.STATUS: lambda text, **kw: get_system_status(),
     IntentType.PROVIDER: lambda text, **kw: get_providers(),
     IntentType.SKILLS: lambda text, **kw: get_skills(),
+    IntentType.BOUNTY: lambda text, **kw: execute_bounty(action=kw.pop("action", "list"), **kw),
+    IntentType.PUBLISH: lambda text, **kw: execute_publish(text=text, action=kw.pop("action", "status"), **kw),
     IntentType.HELP: lambda text, **kw: get_help(),
     IntentType.ULTRAWORKER: lambda text, **kw: execute_ultraworker(
         action=kw.pop("action", "status"),
@@ -824,6 +841,49 @@ def format_result(result: Dict[str, Any]) -> str:
         return f"**Error** ❌\n{result.get('message', 'Unknown error')}"
 
     return f"```json\n{json.dumps(result, indent=2)[:500]}\n```"
+
+
+# ── Publish Handler ──────────────────────────────────────────────────────────
+
+async def execute_publish(text: str = "", action: str = "status", **params) -> Dict[str, Any]:
+    """Publish Pravidhi apps to Anyclaw hosting."""
+    from engine.publisher import AppPublisher
+
+    publisher = AppPublisher()
+    
+    if action in ("deploy", "publish", "chat"):
+        title = params.get("title", "Pravidhi Neural Chat")
+        description = params.get("description", "Advanced AI ecosystem controller with pipeline execution, pentesting, reverse engineering, research, and more.")
+        app_id = params.get("app_id", "pravidhi-chat")
+        
+        result = await AppPublisher.publish_chat_ui(
+            title=title, description=description, app_id=app_id,
+        )
+        if result.success:
+            return {
+                "type": "publish_success",
+                "app_id": result.app_id,
+                "claim_url": result.claim_url,
+                "message": f"App deployed! Claim it at: {result.claim_url}",
+            }
+        else:
+            return {
+                "type": "publish_error",
+                "message": f"Deploy failed: {result.error}",
+            }
+    
+    elif action in ("list", "apps", "ls"):
+        apps = await publisher.list_apps()
+        return {
+            "type": "publish_list",
+            "apps": apps[:20],
+            "total": len(apps),
+        }
+    
+    return {
+        "type": "publish_help",
+        "message": "Usage: publish [deploy|list]. Try 'publish deploy' to deploy the Pravidhi Chat SPA."
+    }
 
 
 # ── Utility Handlers ─────────────────────────────────────────────────────────

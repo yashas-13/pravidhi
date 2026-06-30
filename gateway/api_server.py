@@ -199,6 +199,81 @@ async def rag_search(query: str, top_k: int = 5):
 
 
 
+# ── Bounty System Routes ────────────────────────────────────────────────
+
+@app.get("/api/bounty/list")
+async def bounty_list(status: str = "", category: str = "", hunter: str = ""):
+    """List bounties with optional filters."""
+    from engine.bounty import BountyBoard
+    board = BountyBoard()
+    bounties = await board.list_bounties(status, category, hunter)
+    stats = await board.get_stats()
+    return {"bounties": bounties[:50], "total": len(bounties), "stats": stats}
+
+
+@app.post("/api/bounty/create")
+async def bounty_create(title: str = "Untitled", description: str = "",
+                         category: str = "feature", reward_amount: float = 0,
+                         severity: str = "medium", created_by: str = "anonymous"):
+    """Create a new bounty."""
+    from engine.bounty import BountyBoard
+    board = BountyBoard()
+    b = await board.create_bounty(title, description, category, "vibe", reward_amount,
+                                    created_by, severity)
+    return {"id": b.id[:8], "title": b.title, "reward": f"{b.reward_amount} VIBE", "status": b.status}
+
+
+@app.post("/api/bounty/claim")
+async def bounty_claim(bounty_id: str, hunter: str):
+    """Claim a bounty."""
+    from engine.bounty import BountyBoard
+    board = BountyBoard()
+    success, msg = await board.claim_bounty(bounty_id, hunter)
+    return {"success": success, "message": msg}
+
+
+@app.post("/api/bounty/complete")
+async def bounty_complete(bounty_id: str, hunter: str, notes: str = "", pr_url: str = ""):
+    """Submit bounty completion."""
+    from engine.bounty import BountyBoard
+    board = BountyBoard()
+    success, msg = await board.submit_completion(bounty_id, hunter, notes, pr_url)
+    return {"success": success, "message": msg}
+
+
+@app.get("/api/bounty/stats")
+async def bounty_stats():
+    """Get bounty board statistics."""
+    from engine.bounty import BountyBoard
+    board = BountyBoard()
+    return await board.get_stats()
+
+
+# ── Publisher Routes ────────────────────────────────────────────────────────
+
+@app.post("/api/publish/chat")
+async def publish_chat(title: str = "Pravidhi Neural Chat",
+                        description: str = "Advanced AI ecosystem controller.",
+                        app_id: str = "pravidhi-chat"):
+    """Publish the Pravidhi Chat SPA to Anyclaw."""
+    from engine.publisher import AppPublisher
+    result = await AppPublisher.publish_chat_ui(title=title, description=description, app_id=app_id)
+    if result.success:
+        return {"success": True, "app_id": result.app_id, "claim_url": result.claim_url}
+    return {"success": False, "error": result.error}
+
+
+@app.get("/api/publish/apps")
+async def list_published_apps():
+    """List apps published via Anyclaw."""
+    from engine.publisher import AppPublisher
+    publisher = AppPublisher()
+    apps = await publisher.list_apps()
+    return {"apps": apps, "total": len(apps)}
+
+
+# ── UltraWorker Routes ──────────────────────────────────────────────────────
+
 @app.get("/api/ultraworker/status")
 async def ultraworker_status():
     """Get ultraworker pool status."""
