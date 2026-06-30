@@ -1339,6 +1339,9 @@ let ws = null;
 let isStreaming = false;
 let showTrace = true;
 let codeMode = false;
+// Auto-detect API path prefix (works behind nginx proxy at /pravidhi/)
+const API_BASE = window.location.pathname.includes('/pravidhi') ? '/pravidhi' : '';
+
 let settings = {
   model: '',
   temperature: 0.3,
@@ -1414,7 +1417,7 @@ function updateSystemStatus(text) {
 function startModelPolling() {
   setInterval(async () => {
     try {
-      const resp = await fetch('/api/discover/providers');
+      const resp = await fetch(API_BASE + '/api/discover/providers');
       if (resp.ok) {
         const data = await resp.json();
         if (data.status?.models) {
@@ -1495,7 +1498,7 @@ function connectWebSocket(sessionId) {
   if (ws) { ws.close(); }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/api/chat/ws/${sessionId}`;
+  const wsUrl = `${protocol}//${window.location.host}${API_BASE}/api/chat/ws/${sessionId}`;
 
   ws = new WebSocket(wsUrl);
 
@@ -1509,9 +1512,14 @@ function connectWebSocket(sessionId) {
     handleWSMessage(data);
   };
 
-  ws.onclose = () => {
-    if (!isStreaming) {
-      setTimeout(() => { if (currentSession) connectWebSocket(currentSession); }, 3000);
+  ws.onclose = (e) => {
+    console.log('WebSocket closed:', e.code, e.reason);
+    if (!isStreaming && currentSession) {
+      setTimeout(() => {
+        if (ws === null || ws.readyState === WebSocket.CLOSED) {
+          connectWebSocket(currentSession);
+        }
+      }, 3000);
     }
   };
 
@@ -1589,7 +1597,7 @@ function handleWSMessage(data) {
 
 async function refreshModelStatus() {
   try {
-    const resp = await fetch('/api/discover/providers');
+    const resp = await fetch(API_BASE + '/api/discover/providers');
     if (resp.ok) {
       const data = await resp.json();
       if (data.status?.models) {
@@ -1676,7 +1684,7 @@ function finalizeTraceView(traceEnd) {
 // ════════════════════════════════════════════════════════════════════
 async function newSession() {
   try {
-    const resp = await fetch('/api/chat/sessions', {
+    const resp = await fetch(API_BASE + '/api/chat/sessions', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ settings }),
@@ -1689,15 +1697,18 @@ async function newSession() {
     showWelcome();
     connectWebSocket(currentSession);
     loadSessions();
-    showToast('New session', 'info');
+    showToast('Session ready', 'info');
   } catch(e) {
-    showToast('Failed to create session', 'error');
+    console.error('Session creation failed:', e);
+    showToast('Failed to create session: ' + (e.message || e), 'error');
+    // Retry after 2 seconds
+    setTimeout(() => { if (!currentSession) newSession(); }, 2000);
   }
 }
 
 async function loadSessions() {
   try {
-    const resp = await fetch('/api/chat/sessions');
+    const resp = await fetch(API_BASE + '/api/chat/sessions');
     const data = await resp.json();
     renderSessions(data.sessions);
   } catch(e) {}
@@ -1741,7 +1752,7 @@ async function switchSession(sessionId) {
 
 async function deleteSession(sessionId) {
   try {
-    await fetch(`/api/chat/sessions/${sessionId}`, {method: 'DELETE'});
+    await fetch(`${API_BASE}/api/chat/sessions/${sessionId}`, {method: 'DELETE'});
     if (sessionId === currentSession) await newSession();
     loadSessions();
     showToast('Session deleted', 'success');
@@ -1750,7 +1761,7 @@ async function deleteSession(sessionId) {
 
 async function loadHistory(sessionId) {
   try {
-    const resp = await fetch(`/api/chat/sessions/${sessionId}/history?limit=50`);
+    const resp = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/history?limit=50`);
     const data = await resp.json();
     const container = document.getElementById('messages');
     container.innerHTML = '';
