@@ -2078,6 +2078,7 @@ function formatResult(data) {
       });
       html += '</table>';
     }
+    return html;
  
   // Scan result
   if (type === 'scan') {
@@ -2165,9 +2166,6 @@ function formatResult(data) {
   // Help pages (cyber_help, re_help)
   if (type === 'cyber_help' || type === 're_help') {
     return `<em>${escHtml(data.message||'')}</em>`;
-  }
-
-   return html;
   }
 
   // Binary analysis

@@ -57,6 +57,18 @@ async def create_session(req: Optional[CreateSessionRequest] = None):
     """Create a new chat session."""
     manager = get_chat_manager()
     settings = req.settings if req else None
+    # Map frontend camelCase keys to backend snake_case
+    if settings:
+        key_map = {
+            "maxTokens": "max_tokens",
+            "systemPrompt": "system_prompt",
+            "autoRotate": "auto_rotate",
+            "opencodeUrl": "opencode_url",
+            "routerUrl": "router_url",
+        }
+        for front_key, back_key in key_map.items():
+            if front_key in settings:
+                settings[back_key] = settings.pop(front_key)
     session = manager.create_session(settings)
     return {
         "session_id": session.id,
